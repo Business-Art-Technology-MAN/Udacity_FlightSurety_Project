@@ -12,6 +12,20 @@ contract FlightSuretyData {
     address private contractOwner;                                      // Account used to deploy contract
     bool private operational = true;                                    // Blocks all state changes throughout the contract if false
 
+    mapping (address=>bool) private contractAuthorization;
+    //variables defining a airline
+    struct Airline {
+        
+        bool isRegistered;
+        uint256 funds;
+        uint32 votes;
+    }
+
+    //private map holding registered airlines
+    mapping (address=>Airline) private airlines;
+
+    uint32 private _numAirlines = 0;
+    uint32 private _numFundedAirlines = 0;
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
     /********************************************************************************************/
@@ -27,6 +41,9 @@ contract FlightSuretyData {
                                 public 
     {
         contractOwner = msg.sender;
+        contractAuthorization[msg.sender] = true;
+        //create insertion of first airline
+        airlines[msg.sender] = Airline(true, 0, 0);
     }
 
     /********************************************************************************************/
@@ -55,11 +72,24 @@ contract FlightSuretyData {
         require(msg.sender == contractOwner, "Caller is not contract owner");
         _;
     }
-
+    /**
+    * @dev Modifier that requires the "authorized caller" account to be the function caller
+    */
+    modifier isAuthorizedCaller()
+    {
+        require(contractAuthorization[msg.sender], "Caller is not authorized caller");
+        _;
+    }
     /********************************************************************************************/
     /*                                       UTILITY FUNCTIONS                                  */
     /********************************************************************************************/
-
+    /**
+    * @dev Set authorized callors 
+    * @return A bool that is the current operating status
+    */
+    function authorizeCaller(address dataContract) external requireContractOwner{
+        contractAuthorization[dataContract] = true;
+    }
     /**
     * @dev Get operating status of contract
     *
@@ -99,11 +129,32 @@ contract FlightSuretyData {
     *
     */   
     function registerAirline
-                            (   
+                            (  address airlineAddress 
                             )
+                            isAuthorizedCaller
                             external
-                            pure
     {
+        airlines[airlineAddress]=Airline({
+            isRegistered: true,
+            funds: 0,
+            votes: 0
+        });
+    }
+
+    function isAirline(  address airlineAddress 
+                    )
+                    isAuthorizedCaller
+                    external
+                    view
+                    returns (bool)
+    {
+        Airline memory  myAirline =airlines[airlineAddress];
+
+        bool out = false;
+        if(myAirline.isRegistered){
+            out = true;
+        }
+        return out;
     }
 
 
