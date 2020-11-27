@@ -1,10 +1,11 @@
-pragma solidity ^0.5.16;
+pragma solidity ^0.5.3;
 
 // It's important to avoid vulnerabilities due to numeric overflow bugs
 // OpenZeppelin's SafeMath library, when used correctly, protects agains such bugs
 // More info: https://www.nccgroup.trust/us/about-us/newsroom-and-events/blog/2018/november/smart-contract-insecurity-bad-arithmetic/
 
 import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "./FlightSuretyData.sol";
 
 /************************************************** */
 /* FlightSurety Smart Contract                      */
@@ -34,6 +35,7 @@ contract FlightSuretyApp {
     }
     mapping(bytes32 => Flight) private flights;
 
+    FlightSuretyData flightSuretyData;
  
     /********************************************************************************************/
     /*                                       FUNCTION MODIFIERS                                 */
@@ -67,16 +69,19 @@ contract FlightSuretyApp {
     /*                                       CONSTRUCTOR                                        */
     /********************************************************************************************/
 
-    /**
-    * @dev Contract constructor
+    
+
+    /* @dev Contract constructor
     *
     */
     constructor
                                 (
+                                   address payable dataContract
                                 ) 
                                 public 
     {
         contractOwner = msg.sender;
+        flightSuretyData = FlightSuretyData(dataContract);
     }
 
     /********************************************************************************************/
@@ -335,3 +340,4 @@ contract FlightSuretyApp {
 // endregion
 
 }   
+
