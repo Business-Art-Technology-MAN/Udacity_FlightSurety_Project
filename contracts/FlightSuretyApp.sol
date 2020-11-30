@@ -36,7 +36,7 @@ contract FlightSuretyApp {
     mapping(bytes32 => Flight) private flights;
 
     FlightSuretyData flightSuretyData;
- 
+    uint256 private constant MIN_FUNDS = 10000000000000000000;
     /********************************************************************************************/
     /*                                       FUNCTION MODIFIERS                                 */
     /********************************************************************************************/
@@ -65,6 +65,22 @@ contract FlightSuretyApp {
         _;
     }
 
+    //prereqs for registering an airline
+    modifier airlineNotRegistered(address findAirline){
+        require(!flightSuretyData.isAirline(findAirline), "Airline already exists.");
+        _;
+    }
+
+    modifier airlineIsRegistered(address findAirline){
+        require(flightSuretyData.isAirline(findAirline), "Airline exists.");
+        _;
+    }
+
+    modifier airlineFunded(address findAirline){
+        require(flightSuretyData.getAirlineFunds(findAirline) >= MIN_FUNDS, "Airline is not funded.");
+        _;
+    }
+
     /********************************************************************************************/
     /*                                       CONSTRUCTOR                                        */
     /********************************************************************************************/
@@ -90,16 +106,48 @@ contract FlightSuretyApp {
 
     function isOperational() 
                             public 
-                            pure 
+                            view 
                             returns(bool) 
     {
-        return true;  // Modify to call data contract's status
+        return flightSuretyData.isOperational();
     }
-
+      
     /********************************************************************************************/
-    /*                                     SMART CONTRACT FUNCTIONS                             */
+    /*                                       CONTRACT FUNCTIONS                                  */
     /********************************************************************************************/
 
+   /**
+    * @dev Add an airline to the registration queue
+    *
+    */   
+    function addFundsToAirline
+                            (   
+                             
+                            )
+                            airlineIsRegistered(msg.sender)
+                            external
+                            payable
+                            
+    {
+        require(msg.value > 0, "No negative deposits");
+        flightSuretyData.depositAirlineFunds.value(msg.value)(msg.sender, msg.value);
+    }
+    /**
+    * @dev get an airlines funds
+    *
+    */   
+    function getFundsFromAirline
+                            (   
+                             
+                            )
+                            airlineIsRegistered(msg.sender)
+                            external
+                            view
+                            
+    {
+        
+        flightSuretyData.getAirlineFunds(msg.sender);
+    }
   
    /**
     * @dev Add an airline to the registration queue
@@ -107,12 +155,32 @@ contract FlightSuretyApp {
     */   
     function registerAirline
                             (   
+                                address airlineToRegister,
+                                bool vote
                             )
                             external
-                            pure
+                            payable
+                            airlineNotRegistered(airlineToRegister)
+                            airlineFunded(msg.sender)
                             returns(bool success, uint256 votes)
     {
-        return (success, 0);
+        uint256 currentVotes = 0;
+        uint256 numRegAirlines = flightSuretyData.getNumberRegisteredAirlines();
+        if(numRegAirlines < 4){
+            //less than 5 airlines just add it
+            flightSuretyData.registerAirline(airlineToRegister);
+            //flightSuretyData.setAirlineAsRegistered(airlineToRegister);
+        }else if(vote){
+            
+            currentVotes = flightSuretyData.concensusVote(airlineToRegister, msg.sender);
+            uint256 half = numRegAirlines.div(2);
+            if(currentVotes >= half){
+                flightSuretyData.registerAirline(airlineToRegister); 
+            }
+
+        }        
+        
+        return (vote, currentVotes);
     }
 
 
@@ -230,8 +298,7 @@ contract FlightSuretyApp {
                                     });
     }
 
-    function getMyIndexes
-                            (
+    function depositAirlineFunds                 (
                             )
                             view
                             external

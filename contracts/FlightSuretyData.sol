@@ -4,7 +4,7 @@ import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract FlightSuretyData {
     using SafeMath for uint256;
-
+    
     /********************************************************************************************/
     /*                                       DATA VARIABLES                                     */
     /********************************************************************************************/
@@ -18,7 +18,7 @@ contract FlightSuretyData {
         
         bool isRegistered;
         uint256 funds;
-        uint32 votes;
+        uint256 votes;
     }
 
     //private map holding registered airlines
@@ -73,6 +73,15 @@ contract FlightSuretyData {
     modifier requireContractOwner()
     {
         require(msg.sender == contractOwner, "Caller is not contract owner");
+        _;
+    }
+
+    /**
+    * @dev Modifier that requires the "ContractOwner" account to be the function caller
+    */
+    modifier requireNotAlreadyRegistered(address toReg)
+    {
+        require(airlines[toReg].isRegistered, "Airline already registered!");
         _;
     }
     /**
@@ -132,9 +141,11 @@ contract FlightSuretyData {
     *
     */   
     function registerAirline
-                            (  address airlineAddress 
+                            (  
+                                address airlineAddress 
                             )
                             isAuthorizedCaller
+                            
                             external
     {
         //
@@ -142,7 +153,7 @@ contract FlightSuretyData {
         airlines[airlineAddress]=Airline({
             isRegistered: true,
             funds: 0,
-            votes: 0
+            votes: consensusMap[airlineAddress].length
         });
         _numAirlines = _numAirlines.add(1);
     }
@@ -160,18 +171,39 @@ contract FlightSuretyData {
     }
 
     /**
+    * @dev deposit airline funds
+    *      Can only be called from FlightSuretyApp contract
+    *
+    */
+    function setAirlineAsRegistered(address authorize) 
+                            isAuthorizedCaller
+                            payable
+                            external
+    {
+        airlines[authorize].isRegistered = true;
+        _numAirlines = _numAirlines.add(1);
+    }
+    /**
     * @dev vote on airline consensus
     *      Can only be called from FlightSuretyApp contract
     *
     */
-    function concensusVote(address airlineToAdd, address sponsorAirline, uint256 vote) 
+    function concensusVote(address airlineToAdd, address sponsorAirline) 
                             isAuthorizedCaller
                             external
+                            payable
                             returns(uint256)
     {
-        for(uint i=0; i < consensusMap[airlineToAdd].length; i++){
-            require(consensusMap[airlineToAdd][i] != sponsorAirline, "Airline has already voted!");
+        if(consensusMap[airlineToAdd].length != 0){
+            for(uint i=0; i < consensusMap[airlineToAdd].length; i++){
+                require(consensusMap[airlineToAdd][i] != sponsorAirline, "Airline has already voted!");
+            }
         }
+        
+        consensusMap[airlineToAdd].push(sponsorAirline);
+
+        airlines[airlineToAdd].votes = airlines[airlineToAdd].votes.add(1);
+
         return consensusMap[airlineToAdd].length;
     }
 
@@ -183,6 +215,7 @@ contract FlightSuretyData {
     function airlineTotalVotes(address airlineToAdd) 
                             isAuthorizedCaller
                             external
+                            view
                             returns(uint256)
     {
         return consensusMap[airlineToAdd].length;
@@ -219,7 +252,32 @@ contract FlightSuretyData {
         return out;
     }
 
+    //get current funds for airline
+    function getAirlineFunds(  address airlineAddress 
+                    )
+                    isAuthorizedCaller
+                    external
+                    view
+                    returns (uint256)
+    {
+        Airline memory  myAirline =airlines[airlineAddress];
 
+        uint256 theFunds = myAirline.funds;
+        return theFunds;
+    }
+    //get current funds for airline
+    function getAirline(  address airlineAddress 
+                        )
+                        isAuthorizedCaller
+                        external
+                        view
+                        returns (bool, uint256, uint256)
+    {
+        Airline memory  myAirline =airlines[airlineAddress];
+
+        
+        return (myAirline.isRegistered, myAirline.funds, myAirline.votes);
+    }
    /**
     * @dev Buy insurance for a flight
     *

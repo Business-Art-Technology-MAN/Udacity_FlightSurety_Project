@@ -1,7 +1,7 @@
 
 var FlightSuretyApp = artifacts.require("FlightSuretyApp");
 var FlightSuretyData = artifacts.require("FlightSuretyData");
-var BigNumber = require('bignumber.js');
+var BN = require('bn.js'); //truffle 5 udates to use BN instead of BigNumber
 
 var Config = async function(accounts) {
     
@@ -31,7 +31,7 @@ var Config = async function(accounts) {
     return {
         owner: owner,
         firstAirline: firstAirline,
-        weiMultiple: (new BigNumber(10)).pow(18),
+        weiMultiple: new BN('1000000000000000000'),
         testAddresses: testAddresses,
         flightSuretyData: flightSuretyData,
         flightSuretyApp: flightSuretyApp
