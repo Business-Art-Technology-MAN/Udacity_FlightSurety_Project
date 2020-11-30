@@ -1,10 +1,10 @@
-pragma solidity ^0.5.16;
+pragma solidity ^0.5.3;
 
 import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract FlightSuretyData {
     using SafeMath for uint256;
-
+    
     /********************************************************************************************/
     /*                                       DATA VARIABLES                                     */
     /********************************************************************************************/
@@ -18,14 +18,17 @@ contract FlightSuretyData {
         
         bool isRegistered;
         uint256 funds;
-        uint32 votes;
+        uint256 votes;
     }
 
     //private map holding registered airlines
     mapping (address=>Airline) private airlines;
 
-    uint32 private _numAirlines = 0;
+    uint256 private _numAirlines = 0;
     uint32 private _numFundedAirlines = 0;
+
+    //Consensus data
+    mapping (address=>address[]) private consensusMap;
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
     /********************************************************************************************/
@@ -70,6 +73,15 @@ contract FlightSuretyData {
     modifier requireContractOwner()
     {
         require(msg.sender == contractOwner, "Caller is not contract owner");
+        _;
+    }
+
+    /**
+    * @dev Modifier that requires the "ContractOwner" account to be the function caller
+    */
+    modifier requireNotAlreadyRegistered(address toReg)
+    {
+        require(airlines[toReg].isRegistered, "Airline already registered!");
         _;
     }
     /**
@@ -129,18 +141,101 @@ contract FlightSuretyData {
     *
     */   
     function registerAirline
-                            (  address airlineAddress 
+                            (  
+                                address airlineAddress 
                             )
                             isAuthorizedCaller
+                            
                             external
     {
+        //
+
         airlines[airlineAddress]=Airline({
             isRegistered: true,
             funds: 0,
-            votes: 0
+            votes: consensusMap[airlineAddress].length
         });
+        _numAirlines = _numAirlines.add(1);
+    }
+    /**
+    * @dev deposit airline funds
+    *      Can only be called from FlightSuretyApp contract
+    *
+    */
+    function depositAirlineFunds(address depositor, uint256 funds) 
+                            isAuthorizedCaller
+                            payable
+                            external
+    {
+        airlines[depositor].funds = airlines[depositor].funds.add(funds);
     }
 
+    /**
+    * @dev deposit airline funds
+    *      Can only be called from FlightSuretyApp contract
+    *
+    */
+    function setAirlineAsRegistered(address authorize) 
+                            isAuthorizedCaller
+                            payable
+                            external
+    {
+        airlines[authorize].isRegistered = true;
+        _numAirlines = _numAirlines.add(1);
+    }
+    /**
+    * @dev vote on airline consensus
+    *      Can only be called from FlightSuretyApp contract
+    *
+    */
+    function concensusVote(address airlineToAdd, address sponsorAirline) 
+                            isAuthorizedCaller
+                            external
+                            payable
+                            returns(uint256)
+    {
+        if(consensusMap[airlineToAdd].length != 0){
+            for(uint i=0; i < consensusMap[airlineToAdd].length; i++){
+                require(consensusMap[airlineToAdd][i] != sponsorAirline, "Airline has already voted!");
+            }
+        }
+        
+        consensusMap[airlineToAdd].push(sponsorAirline);
+
+        airlines[airlineToAdd].votes = airlines[airlineToAdd].votes.add(1);
+
+        return consensusMap[airlineToAdd].length;
+    }
+
+    /**
+    * @dev return total votes airline funds
+    *      Can only be called from FlightSuretyApp contract
+    *
+    */
+    function airlineTotalVotes(address airlineToAdd) 
+                            isAuthorizedCaller
+                            external
+                            view
+                            returns(uint256)
+    {
+        return consensusMap[airlineToAdd].length;
+    }
+
+    /**
+    * @dev get current number of registered airlines
+    *      Can only be called from FlightSuretyApp contract
+    *
+    */
+    function getNumberRegisteredAirlines() 
+                            isAuthorizedCaller
+                            view
+                            external
+                            returns(uint256)
+    {
+        return _numAirlines;
+    }
+
+    //this is here to make boilerplate test pass
     function isAirline(  address airlineAddress 
                     )
                     isAuthorizedCaller
@@ -157,7 +252,32 @@ contract FlightSuretyData {
         return out;
     }
 
+    //get current funds for airline
+    function getAirlineFunds(  address airlineAddress 
+                    )
+                    isAuthorizedCaller
+                    external
+                    view
+                    returns (uint256)
+    {
+        Airline memory  myAirline =airlines[airlineAddress];
 
+        uint256 theFunds = myAirline.funds;
+        return theFunds;
+    }
+    //get current funds for airline
+    function getAirline(  address airlineAddress 
+                        )
+                        isAuthorizedCaller
+                        external
+                        view
+                        returns (bool, uint256, uint256)
+    {
+        Airline memory  myAirline =airlines[airlineAddress];
+
+        
+        return (myAirline.isRegistered, myAirline.funds, myAirline.votes);
+    }
    /**
     * @dev Buy insurance for a flight
     *

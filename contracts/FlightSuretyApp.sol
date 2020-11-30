@@ -1,10 +1,11 @@
-pragma solidity ^0.5.16;
+pragma solidity ^0.5.3;
 
 // It's important to avoid vulnerabilities due to numeric overflow bugs
 // OpenZeppelin's SafeMath library, when used correctly, protects agains such bugs
 // More info: https://www.nccgroup.trust/us/about-us/newsroom-and-events/blog/2018/november/smart-contract-insecurity-bad-arithmetic/
 
 import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "./FlightSuretyData.sol";
 
 /************************************************** */
 /* FlightSurety Smart Contract                      */
@@ -34,7 +35,8 @@ contract FlightSuretyApp {
     }
     mapping(bytes32 => Flight) private flights;
 
- 
+    FlightSuretyData flightSuretyData;
+    uint256 private constant MIN_FUNDS = 10000000000000000000;
     /********************************************************************************************/
     /*                                       FUNCTION MODIFIERS                                 */
     /********************************************************************************************/
@@ -63,20 +65,39 @@ contract FlightSuretyApp {
         _;
     }
 
+    //prereqs for registering an airline
+    modifier airlineNotRegistered(address findAirline){
+        require(!flightSuretyData.isAirline(findAirline), "Airline already exists.");
+        _;
+    }
+
+    modifier airlineIsRegistered(address findAirline){
+        require(flightSuretyData.isAirline(findAirline), "Airline exists.");
+        _;
+    }
+
+    modifier airlineFunded(address findAirline){
+        require(flightSuretyData.getAirlineFunds(findAirline) >= MIN_FUNDS, "Airline is not funded.");
+        _;
+    }
+
     /********************************************************************************************/
     /*                                       CONSTRUCTOR                                        */
     /********************************************************************************************/
 
-    /**
-    * @dev Contract constructor
+    
+
+    /* @dev Contract constructor
     *
     */
     constructor
                                 (
+                                   address payable dataContract
                                 ) 
                                 public 
     {
         contractOwner = msg.sender;
+        flightSuretyData = FlightSuretyData(dataContract);
     }
 
     /********************************************************************************************/
@@ -85,16 +106,48 @@ contract FlightSuretyApp {
 
     function isOperational() 
                             public 
-                            pure 
+                            view 
                             returns(bool) 
     {
-        return true;  // Modify to call data contract's status
+        return flightSuretyData.isOperational();
     }
-
+      
     /********************************************************************************************/
-    /*                                     SMART CONTRACT FUNCTIONS                             */
+    /*                                       CONTRACT FUNCTIONS                                  */
     /********************************************************************************************/
 
+   /**
+    * @dev Add an airline to the registration queue
+    *
+    */   
+    function addFundsToAirline
+                            (   
+                             
+                            )
+                            airlineIsRegistered(msg.sender)
+                            external
+                            payable
+                            
+    {
+        require(msg.value > 0, "No negative deposits");
+        flightSuretyData.depositAirlineFunds.value(msg.value)(msg.sender, msg.value);
+    }
+    /**
+    * @dev get an airlines funds
+    *
+    */   
+    function getFundsFromAirline
+                            (   
+                             
+                            )
+                            airlineIsRegistered(msg.sender)
+                            external
+                            view
+                            
+    {
+        
+        flightSuretyData.getAirlineFunds(msg.sender);
+    }
   
    /**
     * @dev Add an airline to the registration queue
@@ -102,12 +155,32 @@ contract FlightSuretyApp {
     */   
     function registerAirline
                             (   
+                                address airlineToRegister,
+                                bool vote
                             )
                             external
-                            pure
+                            payable
+                            airlineNotRegistered(airlineToRegister)
+                            airlineFunded(msg.sender)
                             returns(bool success, uint256 votes)
     {
-        return (success, 0);
+        uint256 currentVotes = 0;
+        uint256 numRegAirlines = flightSuretyData.getNumberRegisteredAirlines();
+        if(numRegAirlines < 4){
+            //less than 5 airlines just add it
+            flightSuretyData.registerAirline(airlineToRegister);
+            //flightSuretyData.setAirlineAsRegistered(airlineToRegister);
+        }else if(vote){
+            
+            currentVotes = flightSuretyData.concensusVote(airlineToRegister, msg.sender);
+            uint256 half = numRegAirlines.div(2);
+            if(currentVotes >= half){
+                flightSuretyData.registerAirline(airlineToRegister); 
+            }
+
+        }        
+        
+        return (vote, currentVotes);
     }
 
 
@@ -225,8 +298,7 @@ contract FlightSuretyApp {
                                     });
     }
 
-    function getMyIndexes
-                            (
+    function depositAirlineFunds                 (
                             )
                             view
                             external
@@ -335,3 +407,4 @@ contract FlightSuretyApp {
 // endregion
 
 }   
+
