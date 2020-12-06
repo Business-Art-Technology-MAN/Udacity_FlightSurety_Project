@@ -298,6 +298,14 @@ contract FlightSuretyApp {
                                     });
     }
 
+    function getMyIndexes() view external returns( uint8[3] memory)
+    {
+        require(oracles[msg.sender].isRegistered, "Not registered as an oracle");
+
+        return oracles[msg.sender].indexes;
+    }
+
+
     function depositAirlineFunds                 (
                             )
                             view
