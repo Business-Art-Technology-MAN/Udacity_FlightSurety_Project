@@ -46,76 +46,51 @@ contract FlightSuretyData {
     mapping(string => address[]) private flightPassengersArray;
     mapping(address => uint256) private passengerPayoutFunds;
 
+    //flight struct
+    struct Flight{
+        string name;
+        uint256 flightDateTime;
+        address airline;
+        uint8 status;
+    }
+    /****************************
+    *     Flight  Data          *
+    *****************************/
+    //registered flights by flight name and airling
+    mapping(bytes32 => Flight) private registeredFlights;
+
+
+
+   /********************************************************************************************/
+    /*                                       Flight Functions                                  */
     /********************************************************************************************/
-    /*                                 Insurance CONTRACT FUNCTIONS                             */
-    /********************************************************************************************/
-    /*
-    * Passenger Purchases Insurance
-    */
-    function passengerPurchase(string calldata flight, address passenger) external payable isAuthorizedCaller{
-        //create a new contract
-        InsuranceContract memory insTmp = InsuranceContract({
-            passenger: passenger,
-            flight: flight,
-            value: msg.value,
-            redeemed: false,
-            payed: false
-        }); 
-
-        //keep track of it
-        bytes32 tmpkey = keccak256(abi.encodePacked(flight, passenger));
-        
-        //keep list of insurance contracts by hashed flight Passenger pair
-        insuredFlightsList[tmpkey] = insTmp;
-
-        //keep a list of passengers with insurance by flight
-        flightPassengersArray[flight].push(passenger); 
-
-    }
-
-    /*
-    *           Get Insurance Contract
-    */
-    function getInsuranceContract(string calldata flight, address passenger) external view isAuthorizedCaller
-        returns (address, string memory, uint256, bool, bool)
+    /**
+        Register a flight
+     */
+    function registerFlight(string calldata flightName, address airline, uint256 flightDateTime, uint8 flightStatus) 
+                            external 
+                            isAuthorizedCaller
+                            requireIsOperational
     {
-        //create hashed flight Passenger pair
-        bytes32 tmpkey = keccak256(abi.encodePacked(flight, passenger));
-        return (insuredFlightsList[tmpkey].passenger, insuredFlightsList[tmpkey].flight, insuredFlightsList[tmpkey].value, 
-                insuredFlightsList[tmpkey].redeemed, insuredFlightsList[tmpkey].payed);
+        Flight memory regFlight = Flight({
+            name: flightName,
+            flightDateTime: flightDateTime,
+            airline: airline,
+            status: flightStatus
+        });
+        bytes32 tmpKey = getKey(regFlight.name, regFlight.airline);
+        registeredFlights[tmpKey] = regFlight;
     }
-
-    /*
-    *           credit passengers with flight insurance
-    */
-    function creditByFlight(string calldata flight)external isAuthorizedCaller
+    /**
+        Get Flight Info
+     */
+    function getFlightInfo(string calldata flightName, address airline) view external requireIsOperational 
+                            isAuthorizedCaller returns(string memory, uint256, address, uint8 )
     {
-        //get passengers to be credited by flight
-        address[] memory psgArray = flightPassengersArray[flight];
-
-        //loop through passengers and credit
-        for(uint i = 0; i < psgArray.length; i++){
-            //get key for insurance contracts
-            bytes32 tmpkey = keccak256(abi.encodePacked(flight, psgArray[i]));
-
-            //get record
-            InsuranceContract storage psgInsContract = insuredFlightsList[tmpkey];
-
-            //add passenger to a list of passengers authorized to pay
-            //increase by insurance leverage 1.5 = (3*value)/2
-            uint256 tmpVal = psgInsContract.value.mul(3).div(2);
-            passengerPayoutFunds[psgInsContract.passenger] = tmpVal;
-            
-            //mark contract as redeemed
-            psgInsContract.redeemed = true;
-
-            //update stored contract
-            insuredFlightsList[tmpkey] = psgInsContract;
-        }
-
+        bytes32 tmpKey = getKey(flightName, airline);
+        require(registeredFlights[tmpKey].airline != address(0), "This flight is not registered.");
+        return( registeredFlights[tmpKey].name,  registeredFlights[tmpKey].flightDateTime, registeredFlights[tmpKey].airline,  registeredFlights[tmpKey].status);
     }
-
-    
 
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
@@ -222,6 +197,13 @@ contract FlightSuretyData {
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
+    
+    function getKey(string memory name, address addr) pure internal returns(bytes32)
+    {
+        bytes32 tmpkey = keccak256(abi.encodePacked(name, addr));
+        return (tmpkey);
+    }
+
 
    /**
     * @dev Add an airline to the registration queue
@@ -366,6 +348,77 @@ contract FlightSuretyData {
         
         return (myAirline.isRegistered, myAirline.funds, myAirline.votes);
     }
+
+     /********************************************************************************************/
+    /*                                 Insurance CONTRACT FUNCTIONS                             */
+    /********************************************************************************************/
+    /*
+    * Passenger Purchases Insurance
+    */
+    function passengerPurchase(string calldata flight, address passenger) external payable isAuthorizedCaller{
+        //create a new contract
+        InsuranceContract memory insTmp = InsuranceContract({
+            passenger: passenger,
+            flight: flight,
+            value: msg.value,
+            redeemed: false,
+            payed: false
+        }); 
+
+        //keep track of it
+        bytes32 tmpkey = keccak256(abi.encodePacked(flight, passenger));
+        
+        //keep list of insurance contracts by hashed flight Passenger pair
+        insuredFlightsList[tmpkey] = insTmp;
+
+        //keep a list of passengers with insurance by flight
+        flightPassengersArray[flight].push(passenger); 
+
+    }
+
+    /*
+    *           Get Insurance Contract
+    */
+    function getInsuranceContract(string calldata flight, address passenger) external view isAuthorizedCaller
+        returns (address, string memory, uint256, bool, bool)
+    {
+        //create hashed flight Passenger pair
+        bytes32 tmpkey = keccak256(abi.encodePacked(flight, passenger));
+        return (insuredFlightsList[tmpkey].passenger, insuredFlightsList[tmpkey].flight, insuredFlightsList[tmpkey].value, 
+                insuredFlightsList[tmpkey].redeemed, insuredFlightsList[tmpkey].payed);
+    }
+
+    /*
+    *           credit passengers with flight insurance
+    */
+    function creditByFlight(string calldata flight)external isAuthorizedCaller
+    {
+        //get passengers to be credited by flight
+        address[] memory psgArray = flightPassengersArray[flight];
+
+        //loop through passengers and credit
+        for(uint i = 0; i < psgArray.length; i++){
+            //get key for insurance contracts
+            bytes32 tmpkey = keccak256(abi.encodePacked(flight, psgArray[i]));
+
+            //get record
+            InsuranceContract storage psgInsContract = insuredFlightsList[tmpkey];
+
+            //add passenger to a list of passengers authorized to pay
+            //increase by insurance leverage 1.5 = (3*value)/2
+            uint256 tmpVal = psgInsContract.value.mul(3).div(2);
+            passengerPayoutFunds[psgInsContract.passenger] = tmpVal;
+            
+            //mark contract as redeemed
+            psgInsContract.redeemed = true;
+
+            //update stored contract
+            insuredFlightsList[tmpkey] = psgInsContract;
+        }
+
+    }
+
+
    /**
     * @dev Buy insurance for a flight
     *
