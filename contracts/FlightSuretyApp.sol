@@ -27,14 +27,6 @@ contract FlightSuretyApp {
 
     address private contractOwner;          // Account used to deploy contract
 
-    struct Flight {
-        bool isRegistered;
-        uint8 statusCode;
-        uint256 updatedTimestamp;        
-        address airline;
-    }
-    mapping(bytes32 => Flight) private flights;
-
     FlightSuretyData flightSuretyData;
     uint256 private constant MIN_FUNDS = 10000000000000000000;
     /********************************************************************************************/
@@ -183,18 +175,22 @@ contract FlightSuretyApp {
         return (vote, currentVotes);
     }
 
+    /********************************************************************************************/
+    /*                                       Flight CONTRACT FUNCTIONS                                  */
+    /********************************************************************************************/
 
    /**
     * @dev Register a future flight for insuring.
     *
     */  
     function registerFlight
-                                (
-                                )
+                                (string calldata flightName, uint256 fltDT)
                                 external
-                                pure
+                                airlineIsRegistered(msg.sender)
     {
-
+        
+        flightSuretyData.registerFlight(flightName, msg.sender, fltDT, STATUS_CODE_UNKNOWN);
+        //to do add emit events.
     }
     
    /**
@@ -279,7 +275,7 @@ contract FlightSuretyApp {
     // they fetch data and submit a response
     event OracleRequest(uint8 index, address airline, string flight, uint256 timestamp);
 
-
+    
     // Register an oracle with the contract
     function registerOracle
                             (

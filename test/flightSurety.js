@@ -176,30 +176,6 @@ contract('Flight Surety Tests', async (accounts) => {
     assert.equal(result, false, "50% must approve before registered.");
     assert.equal(numAirlines, 4, "Number of Airlines should have stayed at 4.")
     assert.equal(numVotes, 1, "There should only be one vote at this point.");
-    /* await config.flightSuretyApp.registerAirline(fifthAirline, false, {from: fourthAirline});
-
-    let result2 = await config.flightSuretyData.isAirline.call(fifthAirline);
-    assert.equal(result2, false, "false = no approval, nothing sould change.");
-
-    await config.flightSuretyApp.registerAirline(fifthAirline, true, {from: fourthAirline});
-
-    let result3 = await config.flightSuretyData.isAirline.call(fifthAirline);
-    assert.equal(result3, false, "Airlines are only allowed to vote once, nothing sould change.");
-
-    await config.flightSuretyApp.registerAirline(fifthAirline, true, {from: config.firstAirline});
-
-    let result4 = await config.flightSuretyData.isAirline.call(fifthAirline);
-    assert.equal(result4, true, "Wait, that should have been 50%"); */
-
-
-    
-    
-    /* console.log("number of regd airlines: ", numAirlines);
-    console.log("mulityparty tests: ", result); */
-    
-    
-  
-
   });
 
   it('(mult-party consensus) Test 50% approval', async () => {
@@ -211,13 +187,14 @@ contract('Flight Surety Tests', async (accounts) => {
     let doubleVoteError = false;
     // ACT
     try {
-      
+      //check no double voting
       await config.flightSuretyApp.registerAirline(fifthAirline, true, {from: thirdAirline});
       await config.flightSuretyApp.registerAirline(fifthAirline, false, {from: thirdAirline});
 
     }
     catch(e) {
       //console.log(e);
+      //double vote error thrown
       doubleVoteError = true;
     }
 
@@ -237,26 +214,29 @@ contract('Flight Surety Tests', async (accounts) => {
     let result = await config.flightSuretyData.isAirline.call(fifthAirline);
     assert.equal(doubleVoteError, true, "Error a second vote by a single airline was allowed.");
     assert.equal(result, true, "50% of votes should have been achieved");
+  });
 
-    /*
-    await config.flightSuretyApp.registerAirline(fifthAirline, true, {from: fourthAirline});
-
-    let result3 = await config.flightSuretyData.isAirline.call(fifthAirline);
-    assert.equal(result3, false, "Airlines are only allowed to vote once, nothing sould change.");
-
-    await config.flightSuretyApp.registerAirline(fifthAirline, true, {from: config.firstAirline});
-
-    let result4 = await config.flightSuretyData.isAirline.call(fifthAirline);
-    assert.equal(result4, true, "Wait, that should have been 50%"); */
-
-
+  it('Flights check registering and getting', async () => {
+    //ARANGE
+    let flightName = "MAL2689"
+    let timestamp = Math.floor(Date.now() / 1000);
     
-    
-    /* console.log("number of regd airlines: ", numAirlines);
-    console.log("mulityparty tests: ", result); */
-    
-    
-  
+
+    //ASSEMBLE
+    try {
+      
+      await config.flightSuretyApp.registerFlight(flightName, timestamp, {from: fourthAirline});
+      
+
+    }
+    catch(e) {
+      console.log(e);
+      
+    }
+
+    //ASSERT
+    let result = await config.flightSuretyData.getFlightInfo.call(flightName, fourthAirline);
+    assert.equal(result[0], flightName, "Flight was not added.");
 
   });
 
