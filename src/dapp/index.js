@@ -3,33 +3,47 @@ import DOM from './dom';
 import Contract from './contract';
 import './flightsurety.css';
 
+let contract = new Contract('localhost');
 
 (async() => {
 
     let result = null;
-
-    let contract = new Contract('localhost', () => {
-
+    let opStatus = false;
+    /* let contract = new Contract('localhost', () => {
         // Read transaction
         contract.isOperational((error, result) => {
             console.log(error,result);
             display('Operational Status', 'Check if contract is operational', [ { label: 'Operational Status', error: error, value: result} ]);
+            opStatus = result;
+        }); */
+    await contract.initWeb3(eventHandler);
+          
+        
+        // User-submitted transaction
+        DOM.elid('submit-operational').addEventListener('click', () => {
+            console.log("toggle operational called");
+            // Write transaction
+
+            contract.toggleOperational(!opStatus, (error, result)=>{
+                display('Operational Status', 'Check if contract is operational', [ { label: 'Operational Status', error: error, value: result} ]);
+            });
+            //opStatus = !opStatus;
+            contract.isOperational((error, result) => {
+                console.log(error,result);
+                display('Operational Status', 'Check if contract is operational', [ { label: 'Operational Status', error: error, value: result} ]);
+                opStatus = result;
+            });
         });
-    
 
         // User-submitted transaction
-        DOM.elid('submit-oracle').addEventListener('click', () => {
+        /* DOM.elid('submit-oracle').addEventListener('click', () => {
             let flight = DOM.elid('flight-number').value;
             // Write transaction
             contract.fetchFlightStatus(flight, (error, result) => {
                 display('Oracles', 'Trigger oracles', [ { label: 'Fetch Flight Status', error: error, value: result.flight + ' ' + result.timestamp} ]);
             });
-        })
-    
-    });
-    
-
-})();
+        }); */
+});
 
 
 function display(title, description, results) {
@@ -46,10 +60,16 @@ function display(title, description, results) {
     displayDiv.append(section);
 
 }
+function eventHandler(error, event) {
+    if (blockNumbersSeen.indexOf(event.transactionHash) > -1) {
+        blockNumbersSeen.splice(blockNumbersSeen.indexOf(event.transactionHash), 1);
+        return;
+    }
+    blockNumbersSeen.push(event.transactionHash);
+    console.log(event.address);
 
-
-
-
-
-
-
+    const log = DOM.elid('log-ul');
+    let newLi1 = document.createElement('li');
+    newLi1.append(`${event.event} - ${event.transactionHash}`);
+    log.appendChild(newLi1);
+}

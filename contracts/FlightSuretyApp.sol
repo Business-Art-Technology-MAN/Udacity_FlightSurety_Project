@@ -103,6 +103,13 @@ contract FlightSuretyApp {
     {
         return flightSuretyData.isOperational();
     }
+
+    function toggleOperational() 
+                            public 
+                            //requireContractOwner
+    {
+        flightSuretyData.setOperatingStatus(!flightSuretyData.isOperational());
+    }
       
     /********************************************************************************************/
     /*                                       CONTRACT FUNCTIONS                                  */
